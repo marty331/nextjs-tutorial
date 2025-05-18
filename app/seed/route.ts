@@ -1,9 +1,10 @@
 import bcryptjs from 'bcryptjs';
-import postgres from 'postgres';
+// import postgres from 'postgres';
 import { invoices, customers, revenue, users } from '../lib/placeholder-data';
+import { neon } from '@neondatabase/serverless';  
 
 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
+const sql = neon(process.env.POSTGRES_URL!);
 
 async function seedUsers() {
   await sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
