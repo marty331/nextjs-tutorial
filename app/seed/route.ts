@@ -1,7 +1,7 @@
 import bcryptjs from 'bcryptjs';
 // import postgres from 'postgres';
 import { invoices, customers, revenue, users } from '../lib/placeholder-data';
-import { neon } from '@neondatabase/serverless';  
+import { neon, neonConfig } from '@neondatabase/serverless';
 
 
 const sql = neon(process.env.POSTGRES_URL!);
@@ -105,15 +105,15 @@ async function seedRevenue() {
 
 export async function GET() {
   try {
-    const result = await sql.begin((sql) => [
-      seedUsers(),
-      seedCustomers(),
-      seedInvoices(),
-      seedRevenue(),
-    ]);
+    // Run all seed functions in sequence to ensure proper table creation and data insertion
+    await seedUsers();
+    await seedCustomers();
+    await seedInvoices();
+    await seedRevenue();
 
     return Response.json({ message: 'Database seeded successfully' });
   } catch (error) {
-    return Response.json({ error }, { status: 500 });
+    console.error('Error seeding database:', error);
+    return Response.json({ error: error instanceof Error ? error.message : 'An error occurred' }, { status: 500 });
   }
 }
