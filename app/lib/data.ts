@@ -1,47 +1,52 @@
-import postgres from 'postgres';
+// import postgres from 'postgres';
+import { neon } from '@neondatabase/serverless';
 import {
-  CustomerField,
-  CustomersTableType,
-  InvoiceForm,
-  InvoicesTable,
-  LatestInvoiceRaw,
+  LatestInvoice,
   Revenue,
 } from './definitions';
 import { formatCurrency } from './utils';
 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
+const sql = neon(process.env.POSTGRES_URL!);
 
-export async function fetchRevenue() {
+export async function fetchRevenue(): Promise<Revenue[]> {
   try {
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
-
     // console.log('Fetching revenue data...');
     // await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    const data = await sql<Revenue[]>`SELECT * FROM revenue`;
+    // Execute the query and get the raw data
+    const data = await sql`SELECT * FROM revenue`;
 
     // console.log('Data fetch completed after 3 seconds.');
-
-    return data;
+    
+    // Map the database rows to the Revenue type
+    return data.map((row: any) => ({
+      month: String(row.month),
+      revenue: Number(row.revenue)
+    }));
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch revenue data.');
   }
 }
 
-export async function fetchLatestInvoices() {
+export async function fetchLatestInvoices(): Promise<LatestInvoice[]> {
   try {
-    const data = await sql<LatestInvoiceRaw[]>`
+    const data = await sql`
       SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
       FROM invoices
       JOIN customers ON invoices.customer_id = customers.id
       ORDER BY invoices.date DESC
       LIMIT 5`;
 
-    const latestInvoices = data.map((invoice) => ({
+    const latestInvoices = data.map((invoice: any) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
+      id: String(invoice.id),
+      name: String(invoice.name),
+      image_url: String(invoice.image_url),
+      email: String(invoice.email),
     }));
     return latestInvoices;
   } catch (error) {
@@ -50,7 +55,12 @@ export async function fetchLatestInvoices() {
   }
 }
 
-export async function fetchCardData() {
+export async function fetchCardData(): Promise<{
+  numberOfCustomers: number;
+  numberOfInvoices: number;
+  totalPaidInvoices: string;
+  totalPendingInvoices: string;
+}> {
   try {
     // You can probably combine these into a single SQL query
     // However, we are intentionally splitting them to demonstrate
@@ -93,7 +103,7 @@ export async function fetchFilteredInvoices(
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
-    const invoices = await sql<InvoicesTable[]>`
+    const invoices = await sql`
       SELECT
         invoices.id,
         invoices.amount,
@@ -144,7 +154,7 @@ export async function fetchInvoicesPages(query: string) {
 
 export async function fetchInvoiceById(id: string) {
   try {
-    const data = await sql<InvoiceForm[]>`
+    const data = await sql`
       SELECT
         invoices.id,
         invoices.customer_id,
@@ -154,10 +164,13 @@ export async function fetchInvoiceById(id: string) {
       WHERE invoices.id = ${id};
     `;
 
-    const invoice = data.map((invoice) => ({
+    const invoice = data.map((invoice: any) => ({
       ...invoice,
       // Convert amount from cents to dollars
       amount: invoice.amount / 100,
+      customer_id: String(invoice.customer_id),
+      status: String(invoice.status),
+      id: String(invoice.id),
     }));
 
     return invoice[0];
@@ -169,7 +182,7 @@ export async function fetchInvoiceById(id: string) {
 
 export async function fetchCustomers() {
   try {
-    const customers = await sql<CustomerField[]>`
+    const customers = await sql`
       SELECT
         id,
         name
@@ -177,16 +190,19 @@ export async function fetchCustomers() {
       ORDER BY name ASC
     `;
 
-    return customers;
+    return customers.map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+    }));
   } catch (err) {
     console.error('Database Error:', err);
     throw new Error('Failed to fetch all customers.');
   }
-}
+} 
 
 export async function fetchFilteredCustomers(query: string) {
   try {
-    const data = await sql<CustomersTableType[]>`
+    const data = await sql`
 		SELECT
 		  customers.id,
 		  customers.name,
